@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+const [currentPlayer, setCurrentPlayer] = useState(null);
 import { db } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 const defaultChallenges = [
@@ -48,7 +49,16 @@ export default function App(){
   const resetGame=async()=>{ try{ await updateDoc(ref,{cellColors:Array(25).fill(null), activePlayer:0, playerNames:defaultPlayerNames}); }catch(e){ console.error(e); setStatus('Error resetting'); } };
   const updatePlayerName=async(i,name)=>{ try{ const newNames=[...playerNames]; newNames[i]=name; await updateDoc(ref,{playerNames:newNames}); }catch(e){ console.error(e); setStatus('Error updating name'); } };
   const updateChallenge=async(i,val)=>{ try{ const newBoard=[...board]; newBoard[i]=val; await updateDoc(ref,{board:newBoard}); }catch(e){ console.error(e); setStatus('Error updating challenge'); } };
-  const selectPlayer=(i)=>{ setActivePlayer(i); /* optionally persist */ };
+  const selectPlayer = async (i) => {
+  try {
+    setActivePlayer(i);
+    await updateDoc(ref, { activePlayer: i });
+  } catch (e) {
+    console.error(e);
+    setStatus('Error selecting player');
+  }
+};
+
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-3xl font-bold text-center">Valorant Bingo — Shared</h1>
