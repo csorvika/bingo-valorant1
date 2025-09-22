@@ -82,7 +82,7 @@ export default function App(){
       await updateDoc(ref,{ 
         cellColors:Array(25).fill(null), 
         playerLocks:Array(5).fill(null) // felszabadítjuk a helyeket
-        // ⚠️ NEM reseteljük a neveket!
+        // ⚠️ neveket nem reseteljük!
       }); 
       setActivePlayer(null);
     }catch(e){ 
@@ -115,7 +115,6 @@ export default function App(){
 
   const selectPlayer=async(i)=>{
     try{
-      // azonosító mentése localStorage-be
       let myId = localStorage.getItem("playerId");
       if(!myId){
         myId = crypto.randomUUID();
@@ -159,9 +158,11 @@ export default function App(){
                 "mt-2 text-white py-1 rounded "+
                 (activePlayer===i? "bg-gray-800":"bg-gray-500")
               } 
-              onClick={()=>selectPlayer(i)}>
-              {playerLocks[i] && playerLocks[i]!==localStorage.getItem("playerId") 
-                ? "Foglalt" 
+              onClick={()=>selectPlayer(i)}
+              disabled={playerLocks[i] && playerLocks[i]!==localStorage.getItem("playerId")}
+            >
+              {playerLocks[i]
+                ? (playerLocks[i]===localStorage.getItem("playerId") ? "Selected" : "Foglalt")
                 : "Select"}
             </button>
           </div>
