@@ -20,6 +20,7 @@ export default function App(){
   const [playerLocks,setPlayerLocks]=useState(Array(5).fill(null));
   const [activePlayer,setActivePlayer]=useState(null);
   const [status,setStatus]=useState('Disconnected');
+  const [bet,setBet]=useState("noob");   // <-- új state
 
   const [showAdmin,setShowAdmin]=useState(false);
   const [isAdmin,setIsAdmin]=useState(false);
@@ -39,6 +40,7 @@ export default function App(){
             cellColors, 
             playerNames, 
             playerLocks, 
+            bet: "noob",  // <-- alap bet
             createdAt: serverTimestamp() 
           });
         }
@@ -49,6 +51,7 @@ export default function App(){
           setCellColors(d.cellColors || Array(25).fill(null));
           setPlayerNames(d.playerNames || defaultPlayerNames);
           setPlayerLocks(d.playerLocks || Array(5).fill(null));
+          setBet(d.bet || "noob");  // <-- snapshotból
           setStatus('Connected');
         });
       }catch(e){
@@ -87,6 +90,7 @@ export default function App(){
       await updateDoc(ref,{ 
         cellColors:Array(25).fill(null), 
         playerLocks:Array(5).fill(null) 
+        // ⚠️ NEM reseteljük a neveket és a bet-et
       }); 
       setActivePlayer(null);
     }catch(e){ 
@@ -117,6 +121,16 @@ export default function App(){
     } 
   };
 
+  const updateBet=async(val)=>{
+    try{
+      setBet(val);
+      await updateDoc(ref,{bet:val});
+    }catch(e){
+      console.error(e);
+      setStatus("Error updating bet");
+    }
+  };
+
   const selectPlayer=async(i)=>{
     try{
       let myId = localStorage.getItem("playerId");
@@ -142,7 +156,7 @@ export default function App(){
   };
 
   const handleLogin=()=>{
-    if(loginUser==="csorvi" && loginPass==="Aka1234"){
+    if(loginUser==="csorvi" && loginPass==="276784"){
       setIsAdmin(true);
     } else {
       alert("Hibás adatok!");
@@ -181,7 +195,7 @@ export default function App(){
                 Belépés
               </button>
             </div>
-          ):(
+          ):( 
             <div className="space-y-2">
               <h2 className="font-bold">Challenge Editor</h2>
               {board.map((ch,i)=>(
@@ -192,6 +206,13 @@ export default function App(){
                   onChange={e=>updateChallenge(i,e.target.value)} 
                 />
               ))}
+
+              <h2 className="font-bold mt-4">Tét</h2>
+              <input 
+                className="border p-1 rounded w-full"
+                value={bet}
+                onChange={e=>updateBet(e.target.value)}
+              />
             </div>
           )}
         </div>
@@ -238,6 +259,12 @@ export default function App(){
           </div>
         ))}
       </div>
+
+      {/* Tét kiírása */}
+      <div className="text-center text-lg font-semibold mt-4">
+        Tét: {bet}
+      </div>
+
       <div className="text-sm text-gray-600 text-center">{status}</div>
     </div>
   );
