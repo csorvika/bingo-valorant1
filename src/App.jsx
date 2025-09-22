@@ -17,9 +17,14 @@ export default function App(){
   const [board,setBoard]=useState(defaultChallenges.slice(0,25));
   const [cellColors,setCellColors]=useState(Array(25).fill(null));
   const [playerNames,setPlayerNames]=useState(defaultPlayerNames);
-  const [playerLocks,setPlayerLocks]=useState(Array(5).fill(null)); // ki foglalta a slotot
+  const [playerLocks,setPlayerLocks]=useState(Array(5).fill(null));
   const [activePlayer,setActivePlayer]=useState(null);
   const [status,setStatus]=useState('Disconnected');
+
+  const [showAdmin,setShowAdmin]=useState(false);
+  const [isAdmin,setIsAdmin]=useState(false);
+  const [loginUser,setLoginUser]=useState("");
+  const [loginPass,setLoginPass]=useState("");
 
   const ref = doc(db,'games','shared');
 
@@ -81,8 +86,7 @@ export default function App(){
     try{ 
       await updateDoc(ref,{ 
         cellColors:Array(25).fill(null), 
-        playerLocks:Array(5).fill(null) // felszabadítjuk a helyeket
-        // ⚠️ neveket nem reseteljük!
+        playerLocks:Array(5).fill(null) 
       }); 
       setActivePlayer(null);
     }catch(e){ 
@@ -121,13 +125,11 @@ export default function App(){
         localStorage.setItem("playerId", myId);
       }
 
-      // ha foglalt és nem te vagy → stop
       if(playerLocks[i] !== null && playerLocks[i] !== myId){
         alert("Ez a hely már foglalt!");
         return;
       }
 
-      // lock beállítása
       const newLocks=[...playerLocks];
       newLocks[i]=myId;
       await updateDoc(ref,{playerLocks:newLocks});
@@ -139,8 +141,62 @@ export default function App(){
     }
   };
 
+  const handleLogin=()=>{
+    if(loginUser==="csorvi" && loginPass==="Aka1234"){
+      setIsAdmin(true);
+    } else {
+      alert("Hibás adatok!");
+    }
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 relative">
+      {/* rejtett gomb */}
+      <button 
+        onClick={()=>setShowAdmin(!showAdmin)} 
+        className="absolute top-2 right-2 w-6 h-6 bg-transparent hover:bg-gray-200 rounded"
+      >
+        •
+      </button>
+
+      {showAdmin && (
+        <div className="absolute top-10 right-2 bg-white shadow-lg border rounded p-4 w-64">
+          {!isAdmin ? (
+            <div className="space-y-2">
+              <h2 className="font-bold">Admin Login</h2>
+              <input 
+                placeholder="Felhasználónév" 
+                className="border p-1 w-full"
+                value={loginUser} 
+                onChange={e=>setLoginUser(e.target.value)}
+              />
+              <input 
+                placeholder="Jelszó" 
+                type="password"
+                className="border p-1 w-full"
+                value={loginPass} 
+                onChange={e=>setLoginPass(e.target.value)}
+              />
+              <button onClick={handleLogin} className="bg-blue-600 text-white px-2 py-1 rounded w-full">
+                Belépés
+              </button>
+            </div>
+          ):(
+            <div className="space-y-2">
+              <h2 className="font-bold">Challenge Editor</h2>
+              {board.map((ch,i)=>(
+                <input 
+                  key={i} 
+                  className="border p-1 rounded w-full"
+                  value={ch} 
+                  onChange={e=>updateChallenge(i,e.target.value)} 
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <h1 className="text-3xl font-bold text-center">Valorant Bingo — Shared</h1>
       <div className="flex justify-center gap-4">
         <button onClick={shuffleBoard} className="px-4 py-2 bg-blue-600 text-white rounded">Shuffle</button>
@@ -180,11 +236,6 @@ export default function App(){
             }}>
             {c}
           </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-5 gap-2 mt-6 max-w-3xl mx-auto">
-        {board.map((ch,i)=>(
-          <input key={i} className="border p-1 rounded" value={ch} onChange={e=>updateChallenge(i,e.target.value)} />
         ))}
       </div>
       <div className="text-sm text-gray-600 text-center">{status}</div>
