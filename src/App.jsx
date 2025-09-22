@@ -11,7 +11,7 @@ const defaultChallenges = [
 ];
 
 const defaultPlayerNames = ["Player 1","Player 2","Player 3","Player 4","Player 5"];
-const playerColors = ["red","blue","green","yellow","purple"];
+const playerColors = ["red","blue","green","black","purple"];
 
 export default function App(){ 
   const [board,setBoard]=useState(defaultChallenges.slice(0,25));
