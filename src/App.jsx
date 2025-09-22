@@ -17,7 +17,8 @@ export default function App(){
   const [board,setBoard]=useState(defaultChallenges.slice(0,25));
   const [cellColors,setCellColors]=useState(Array(25).fill(null));
   const [playerNames,setPlayerNames]=useState(defaultPlayerNames);
-  const [activePlayer,setActivePlayer]=useState(null);   // csak helyben tároljuk!
+  const [playerLocks,setPlayerLocks]=useState(Array(5).fill(null)); // ki foglalta a slotot
+  const [activePlayer,setActivePlayer]=useState(null);
   const [status,setStatus]=useState('Disconnected');
 
   const ref = doc(db,'games','shared');
@@ -28,7 +29,13 @@ export default function App(){
       try{
         const snap=await getDoc(ref);
         if(!snap.exists()){
-          await setDoc(ref,{ board, cellColors, playerNames, createdAt: serverTimestamp() });
+          await setDoc(ref,{ 
+            board, 
+            cellColors, 
+            playerNames, 
+            playerLocks, 
+            createdAt: serverTimestamp() 
+          });
         }
         unsub = onSnapshot(ref,(s)=>{
           if(!s.exists()) return;
@@ -36,6 +43,7 @@ export default function App(){
           setBoard(d.board || defaultChallenges.slice(0,25));
           setCellColors(d.cellColors || Array(25).fill(null));
           setPlayerNames(d.playerNames || defaultPlayerNames);
+          setPlayerLocks(d.playerLocks || Array(5).fill(null));
           setStatus('Connected');
         });
       }catch(e){
@@ -48,7 +56,7 @@ export default function App(){
   },[]);
 
   const handleCellClick=async(i)=>{
-    if (activePlayer === null) return; // ha nem választott játékost
+    if (activePlayer === null) return;
     try{ 
       const newColors=[...cellColors]; 
       newColors[i]=activePlayer; 
@@ -71,7 +79,12 @@ export default function App(){
 
   const resetGame=async()=>{
     try{ 
-      await updateDoc(ref,{cellColors:Array(25).fill(null), playerNames:defaultPlayerNames}); 
+      await updateDoc(ref,{ 
+        cellColors:Array(25).fill(null), 
+        playerLocks:Array(5).fill(null) // felszabadítjuk a helyeket
+        // ⚠️ NEM reseteljük a neveket!
+      }); 
+      setActivePlayer(null);
     }catch(e){ 
       console.error(e); 
       setStatus('Error resetting'); 
@@ -100,8 +113,31 @@ export default function App(){
     } 
   };
 
-  const selectPlayer=(i)=>{ 
-    setActivePlayer(i);   // CSAK helyben, nem Firestore-ba!
+  const selectPlayer=async(i)=>{
+    try{
+      // azonosító mentése localStorage-be
+      let myId = localStorage.getItem("playerId");
+      if(!myId){
+        myId = crypto.randomUUID();
+        localStorage.setItem("playerId", myId);
+      }
+
+      // ha foglalt és nem te vagy → stop
+      if(playerLocks[i] !== null && playerLocks[i] !== myId){
+        alert("Ez a hely már foglalt!");
+        return;
+      }
+
+      // lock beállítása
+      const newLocks=[...playerLocks];
+      newLocks[i]=myId;
+      await updateDoc(ref,{playerLocks:newLocks});
+
+      setActivePlayer(i);
+    }catch(e){
+      console.error(e);
+      setStatus("Error selecting player");
+    }
   };
 
   return (
@@ -119,9 +155,14 @@ export default function App(){
               <input className="border px-1 flex-1" value={name} onChange={e=>updatePlayerName(i,e.target.value)} />
             </div>
             <button 
-              className={"mt-2 text-white py-1 rounded "+(activePlayer===i? "bg-gray-800":"bg-gray-500")} 
+              className={
+                "mt-2 text-white py-1 rounded "+
+                (activePlayer===i? "bg-gray-800":"bg-gray-500")
+              } 
               onClick={()=>selectPlayer(i)}>
-              Select
+              {playerLocks[i] && playerLocks[i]!==localStorage.getItem("playerId") 
+                ? "Foglalt" 
+                : "Select"}
             </button>
           </div>
         ))}
