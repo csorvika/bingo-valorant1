@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-const [currentPlayer, setCurrentPlayer] = useState(null);
 import { db } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
+
 const defaultChallenges = [
   "Sheriff Kill", "Ace", "Clutch", "Knife Kill", "Operator Kill",
   "Wallbang Kill", "No Scope", "Collateral Kill", "Headshot Kill", "Defuse Last Second",
@@ -9,22 +9,26 @@ const defaultChallenges = [
   "Spectre Spray Transfer", "Marshal Headshot", "Judge Double Kill", "Rez Teammate", "Smoke Kill",
   "Blind Kill", "Shorty Kill", "Stinger Spray", "Ultimate Kill", "Team Ace"
 ];
+
 const defaultPlayerNames = ["Player 1","Player 2","Player 3","Player 4","Player 5"];
 const playerColors = ["red","blue","green","yellow","purple"];
+
 export default function App(){ 
   const [board,setBoard]=useState(defaultChallenges.slice(0,25));
   const [cellColors,setCellColors]=useState(Array(25).fill(null));
   const [playerNames,setPlayerNames]=useState(defaultPlayerNames);
-  const [activePlayer,setActivePlayer]=useState(0);
+  const [activePlayer,setActivePlayer]=useState(null);   // csak helyben tároljuk!
   const [status,setStatus]=useState('Disconnected');
+
   const ref = doc(db,'games','shared');
+
   useEffect(()=>{
     let unsub;
     const init=async()=>{
       try{
         const snap=await getDoc(ref);
         if(!snap.exists()){
-          await setDoc(ref,{ board, cellColors, playerNames, activePlayer, createdAt: serverTimestamp() });
+          await setDoc(ref,{ board, cellColors, playerNames, createdAt: serverTimestamp() });
         }
         unsub = onSnapshot(ref,(s)=>{
           if(!s.exists()) return;
@@ -32,32 +36,73 @@ export default function App(){
           setBoard(d.board || defaultChallenges.slice(0,25));
           setCellColors(d.cellColors || Array(25).fill(null));
           setPlayerNames(d.playerNames || defaultPlayerNames);
-          setActivePlayer(typeof d.activePlayer==='number'?d.activePlayer:0);
           setStatus('Connected');
         });
       }catch(e){
-        console.error(e); setStatus('Error');
+        console.error(e); 
+        setStatus('Error');
       }
     };
     init();
     return ()=>{ if(unsub) unsub(); };
   },[]);
+
   const handleCellClick=async(i)=>{
-    try{ const newColors=[...cellColors]; newColors[i]=activePlayer; await updateDoc(ref,{cellColors:newColors}); }catch(e){ console.error(e); setStatus('Error updating'); }
+    if (activePlayer === null) return; // ha nem választott játékost
+    try{ 
+      const newColors=[...cellColors]; 
+      newColors[i]=activePlayer; 
+      await updateDoc(ref,{cellColors:newColors}); 
+    }catch(e){ 
+      console.error(e); 
+      setStatus('Error updating'); 
+    }
   };
-  const shuffleBoard=async()=>{ try{ const shuffled=[...board].sort(()=>Math.random()-0.5); await updateDoc(ref,{board:shuffled, cellColors:Array(25).fill(null)}); }catch(e){ console.error(e); setStatus('Error shuffling'); } };
-  const resetGame=async()=>{ try{ await updateDoc(ref,{cellColors:Array(25).fill(null), activePlayer:0, playerNames:defaultPlayerNames}); }catch(e){ console.error(e); setStatus('Error resetting'); } };
-  const updatePlayerName=async(i,name)=>{ try{ const newNames=[...playerNames]; newNames[i]=name; await updateDoc(ref,{playerNames:newNames}); }catch(e){ console.error(e); setStatus('Error updating name'); } };
-  const updateChallenge=async(i,val)=>{ try{ const newBoard=[...board]; newBoard[i]=val; await updateDoc(ref,{board:newBoard}); }catch(e){ console.error(e); setStatus('Error updating challenge'); } };
-  const selectPlayer = async (i) => {
-  try {
-    setActivePlayer(i);
-    await updateDoc(ref, { activePlayer: i });
-  } catch (e) {
-    console.error(e);
-    setStatus('Error selecting player');
-  }
-};
+
+  const shuffleBoard=async()=>{
+    try{ 
+      const shuffled=[...board].sort(()=>Math.random()-0.5); 
+      await updateDoc(ref,{board:shuffled, cellColors:Array(25).fill(null)}); 
+    }catch(e){ 
+      console.error(e); 
+      setStatus('Error shuffling'); 
+    } 
+  };
+
+  const resetGame=async()=>{
+    try{ 
+      await updateDoc(ref,{cellColors:Array(25).fill(null), playerNames:defaultPlayerNames}); 
+    }catch(e){ 
+      console.error(e); 
+      setStatus('Error resetting'); 
+    } 
+  };
+
+  const updatePlayerName=async(i,name)=>{
+    try{ 
+      const newNames=[...playerNames]; 
+      newNames[i]=name; 
+      await updateDoc(ref,{playerNames:newNames}); 
+    }catch(e){ 
+      console.error(e); 
+      setStatus('Error updating name'); 
+    } 
+  };
+
+  const updateChallenge=async(i,val)=>{
+    try{ 
+      const newBoard=[...board]; 
+      newBoard[i]=val; 
+      await updateDoc(ref,{board:newBoard}); 
+    }catch(e){ 
+      console.error(e); 
+      setStatus('Error updating challenge'); 
+    } 
+  };
+
+  const selectPlayer=(i)=>{ 
+    setActivePlayer(i);   // CSAK helyben, nem Firestore-ba!
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -73,14 +118,24 @@ export default function App(){
               <div style={{width:18,height:18,backgroundColor:playerColors[i],borderRadius:9}}></div>
               <input className="border px-1 flex-1" value={name} onChange={e=>updatePlayerName(i,e.target.value)} />
             </div>
-            <button className={"mt-2 text-white py-1 rounded "+(activePlayer===i? "bg-gray-800":"bg-gray-500")} onClick={()=>selectPlayer(i)}>Select</button>
+            <button 
+              className={"mt-2 text-white py-1 rounded "+(activePlayer===i? "bg-gray-800":"bg-gray-500")} 
+              onClick={()=>selectPlayer(i)}>
+              Select
+            </button>
           </div>
         ))}
       </div>
       <div className="grid grid-cols-5 gap-2 max-w-3xl mx-auto mt-6">
         {board.map((c,i)=>(
-          <div key={i} onClick={()=>handleCellClick(i)} className="p-4 text-center border rounded cursor-pointer select-none bg-white shadow"
-            style={{ backgroundColor: cellColors[i] !== null ? playerColors[cellColors[i]] : "white", color: cellColors[i] !== null ? "white":"black" }}>
+          <div 
+            key={i} 
+            onClick={()=>handleCellClick(i)} 
+            className="p-4 text-center border rounded cursor-pointer select-none bg-white shadow"
+            style={{ 
+              backgroundColor: cellColors[i] !== null ? playerColors[cellColors[i]] : "white", 
+              color: cellColors[i] !== null ? "white":"black" 
+            }}>
             {c}
           </div>
         ))}
